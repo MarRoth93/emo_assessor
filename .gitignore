@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Training outputs (regenerable, large files)
+outputs/
+logs/
+*.pth
+*.pt
+*.ckpt
+*.pkl
+checkpoints/
+
+# Jupyter cache (but keep notebooks for analysis)
+.ipynb_checkpoints/
+
+# Images (600 images = too large for git)
+images/
+*.jpg
+*.jpeg
+*.png
+*.tif
+*.tiff
+
+# Keep ratings CSV (small, essential for reproduction)
+# ratings/  # Commented out = will be committed
+
+# Generated analysis outputs (from notebooks, can be recreated)
+distribution_histograms.png
+boxplot_all_dimensions.png
+correlation_heatmap.png
+variability_analysis.png
+dimension_statistics.csv
+variability_analysis.csv
+distribution_shape.csv
+correlation_matrix.csv
+test_set_performance.csv
+test_set_performance.png
+
+# SLURM job outputs
+slurm-*.out
+*.out
+*.err
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+*.backup
