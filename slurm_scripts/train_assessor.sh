@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=train_assessor
-#SBATCH --output=../logs/train_assessor_%j.out
-#SBATCH --error=../logs/train_assessor_%j.err
+#SBATCH --output=/home/rothermm/new_assessor/logs/train_assessor_%j.out
+#SBATCH --error=/home/rothermm/new_assessor/logs/train_assessor_%j.err
 #SBATCH --time=24:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
