@@ -1,3 +1,6 @@
+
+<img width="2816" height="1536" alt="Gemini_Generated_Image_5v3d4t5v3d4t5v3d" src="https://github.com/user-attachments/assets/00f46220-a08b-42b6-8a14-f0191c11ed77" />
+
 # EMO Assessor
 
 Deep learning models to predict 14 psychological dimensions from images. Uses a **PCA + Decoder architecture** to reduce dimensionality (14 dims → 4 PCs) for more stable training with small datasets.
