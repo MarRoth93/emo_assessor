@@ -50,7 +50,7 @@ echo "Ratings: $RATINGS_FILE"
 echo "Output: $OUTPUT_DIR"
 echo ""
 
-python scripts/train_assessor.py \
+python scripts/03_train_model.py \
     --images_dir "$IMAGES_DIR" \
     --ratings_file "$RATINGS_FILE" \
     --output_dir "$OUTPUT_DIR" \

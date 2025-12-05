@@ -1,247 +1,188 @@
-# Psychological Rating Assessor
+# EMO Assessor
 
-A deep learning model that predicts 14 psychological dimensions from images.
+Deep learning models to predict 14 psychological dimensions from images. Uses a **PCA + Decoder architecture** to reduce dimensionality (14 dims → 4 PCs) for more stable training with small datasets.
 
-## Dimensions Predicted
+## 🎯 Task
 
-The model predicts the following psychological dimensions:
-- **Approach**: Tendency to approach or engage with the stimulus
-- **Arousal**: Level of emotional/physiological activation
-- **Attention**: Degree of attentional capture
-- **Certainty**: Feeling of certainty or confidence
-- **Commitment**: Level of commitment or dedication
-- **Control**: Sense of control over the situation
-- **Dominance**: Feeling of dominance or power
-- **Effort**: Amount of effort required or expended
-- **Fairness**: Perception of fairness
-- **Identity**: Relevance to personal identity
-- **Obstruction**: Sense of obstruction or blocking
-- **Safety**: Feeling of safety or security
-- **Upswing**: Positive momentum or uplift
-- **Valence**: Overall positive/negative emotional tone
+Predict psychological ratings for images across 14 dimensions:
+- **Affective**: Valence, Arousal, Approach
+- **Cognitive**: Attention, Certainty, Control, Dominance
+- **Social**: Fairness, Identity, Commitment
+- **Situational**: Effort, Obstruction, Safety, Upswing
 
-## Project Structure
+## 📁 Project Structure
 
 ```
-new_assessor/
-├── train_assessor.py          # Main training script
-├── predict_assessor.py         # Inference script for new images
-├── train_assessor.sh          # SLURM batch script for cluster
-├── run_local.sh               # Simple script for local training
-├── requirements.txt           # Python dependencies
-├── images/                    # Training images (600 images)
-├── ratings/                   # CSV file with ratings
-│   └── per_image_Slider_mean_sd_from_wide.csv
-└── outputs/                   # Training outputs (created automatically)
-    └── run_YYYYMMDD_HHMMSS/
-        ├── best_model.pth
-        ├── training_history.csv
-        ├── training_history.png
-        ├── per_dimension_performance.png
-        └── ...
+├── scripts/
+│   ├── 01_analyze_dimensions.py    # Analyze rating distributions
+│   ├── 02_compute_pca.py           # Fit PCA (train set only)
+│   ├── 03_train_model.py           # Train single-backbone models
+│   ├── 03b_train_ensemble.py       # Train ViT+ResNet ensemble
+│   ├── 05_predict_new_images.py    # Inference on new images
+│   ├── 07_run_hyperparameter_search.py  # Launch experiments
+│   ├── 08_analyze_experiments.py   # Compare experiment results
+│   ├── 09_evaluate_model.py        # Evaluate on test set
+│   ├── models/
+│   │   └── ensemble_model.py       # ViT+ResNet ensemble
+│   └── datasets/
+│       ├── augmentation.py         # Augmentation strategies
+│       └── image_dataset.py        # Dataset class
+├── slurm_scripts/                  # SLURM job scripts
+├── ratings/                        # Raw rating CSVs
+├── results/
+│   ├── pca_analysis/              # PCA model & transformed ratings
+│   └── experiment_analysis/       # Hyperparameter search results
+├── outputs/                        # Trained models
+└── images/                         # Image dataset
 ```
 
-## Installation
+## 🚀 Quick Start
 
-1. Install dependencies:
+### 1. Environment Setup
+
 ```bash
+conda activate mediaeval
 pip install -r requirements.txt
 ```
 
-Or if using conda:
+### 2. Data Preparation
+
 ```bash
-conda install pytorch torchvision -c pytorch
-pip install pandas scikit-learn matplotlib seaborn tqdm pillow
+# Analyze rating distributions
+python scripts/01_analyze_dimensions.py
+
+# Compute PCA on training set (prevents data leakage)
+python scripts/02_compute_pca.py --n_components 4
 ```
 
-## Training
+### 3. Training
 
-### Option 1: SLURM Cluster (Recommended)
-
-Submit the job to the cluster:
+**Single Backbone (ResNet, ViT, EfficientNet):**
 ```bash
-sbatch train_assessor.sh
-```
-
-Monitor the job:
-```bash
-squeue -u $USER
-tail -f logs/train_assessor_JOBID.out
-```
-
-### Option 2: Local Training
-
-Make scripts executable:
-```bash
-chmod +x train_assessor.sh run_local.sh
-```
-
-Run locally:
-```bash
-./run_local.sh
-```
-
-### Option 3: Custom Training
-
-Run with custom parameters:
-```bash
-python train_assessor.py \
+python scripts/03_train_model.py \
     --images_dir ./images \
-    --ratings_file ./ratings/per_image_Slider_mean_sd_from_wide.csv \
-    --output_dir ./outputs \
-    --backbone resnet50 \
-    --epochs 100 \
-    --batch_size 64 \
-    --lr 0.0001
+    --ratings_file ./results/pca_analysis/ratings_pca_4comp_train.csv \
+    --use_pca --use_decoder \
+    --pca_model ./results/pca_analysis/pca_targets.joblib \
+    --backbone vit_b_16 \
+    --loss_fn smooth_l1 \
+    --use_amp
 ```
 
-## Training Parameters
-
-### Model Architectures (--backbone)
-- `resnet50` (default): Good balance of speed and accuracy
-- `resnet101`: Deeper ResNet, more capacity
-- `efficientnet_b0`: Efficient and fast
-- `efficientnet_b3`: More accurate EfficientNet
-- `vit_b_16`: Vision Transformer (slower but potentially more accurate)
-
-### Key Hyperparameters
-- `--epochs`: Number of training epochs (default: 50)
-- `--batch_size`: Batch size (default: 32)
-- `--lr`: Learning rate (default: 0.0001)
-- `--optimizer`: Optimizer (adam, adamw, sgd) (default: adamw)
-- `--scheduler`: LR scheduler (cosine, step, plateau, none) (default: cosine)
-- `--dropout`: Dropout rate (default: 0.5)
-- `--train_ratio`: Train/val split ratio (default: 0.8)
-- `--early_stopping`: Early stopping patience (default: 15)
-
-## Data Augmentation
-
-The training script uses extensive data augmentation to improve model robustness:
-
-1. **Geometric Transformations**:
-   - Random cropping
-   - Random horizontal flipping (50% probability)
-   - Random rotation (±15°)
-   - Random affine transformations (translation, scaling, shearing)
-   - Random perspective distortion
-
-2. **Color Augmentations**:
-   - Brightness adjustment (±30%)
-   - Contrast adjustment (±30%)
-   - Saturation adjustment (±30%)
-   - Hue adjustment (±10%)
-   - Random grayscale conversion (10% probability)
-
-3. **Other Augmentations**:
-   - Random erasing (20% probability) - simulates occlusion
-
-All augmentations are only applied during training. Validation uses center cropping only.
-
-## Inference
-
-Use the trained model to predict ratings for new images:
-
-### Predict for a directory of images:
+**Ensemble Model (ViT + ResNet):**
 ```bash
-python predict_assessor.py \
-    --checkpoint outputs/run_YYYYMMDD_HHMMSS/best_model.pth \
-    --image_dir path/to/new/images \
-    --output predictions.csv
+python scripts/03b_train_ensemble.py \
+    --train_csv ./results/pca_analysis/ratings_pca_4comp_train.csv \
+    --val_csv ./results/pca_analysis/ratings_pca_4comp_val.csv \
+    --use_pca --use_decoder \
+    --augmentation moderate \
+    --use_mixup
 ```
 
-### Predict for a list of images:
+**SLURM Cluster:**
 ```bash
-python predict_assessor.py \
-    --checkpoint outputs/run_YYYYMMDD_HHMMSS/best_model.pth \
-    --image_list image_paths.txt \
-    --output predictions.csv
+sbatch slurm_scripts/03b_train_ensemble.sh
 ```
 
-The output CSV will contain:
-- `image_path`: Full path to the image
-- `image_name`: Image filename
-- One column for each dimension with predicted ratings
+### 4. Evaluation
 
-## Outputs
-
-Each training run creates a timestamped directory in `outputs/` containing:
-
-1. **Model Files**:
-   - `best_model.pth`: Best model based on validation correlation
-   - `checkpoint_epoch_N.pth`: Periodic checkpoints
-
-2. **Training Logs**:
-   - `training_history.csv`: Loss and metrics per epoch
-   - `args.json`: Training configuration
-
-3. **Visualizations**:
-   - `training_history.png`: Loss, correlation, and MAE curves
-   - `per_dimension_performance.png`: Bar charts for each dimension
-   - `best_model_per_dimension_performance.csv`: Detailed per-dimension metrics
-
-4. **Other**:
-   - `target_scaler.pkl`: Scaler for denormalization (if --normalize_targets used)
-
-## Performance Metrics
-
-The model is evaluated using:
-1. **Pearson Correlation**: Correlation between predicted and actual ratings
-2. **Mean Absolute Error (MAE)**: Average absolute difference
-3. **Mean Squared Error (MSE)**: Loss function
-
-Metrics are computed both overall (averaged across dimensions) and per-dimension.
-
-## Tips for Better Performance
-
-1. **Use a GPU**: Training on CPU is very slow
-2. **Increase batch size**: If you have GPU memory, use larger batches (64, 128)
-3. **Try different backbones**: EfficientNet or ViT might work better for your data
-4. **Enable mixed precision**: Use `--use_amp` for faster training on modern GPUs
-5. **Normalize targets**: Use `--normalize_targets` if rating scales vary widely
-6. **Increase epochs**: 50 epochs might not be enough - try 100+
-7. **Early stopping**: Prevents overfitting by stopping when validation stops improving
-
-## Dataset Information
-
-- **Total images**: 600
-- **Training images**: 480 (80%)
-- **Validation images**: 120 (20%)
-- **Dimensions**: 14 psychological ratings per image
-- **Rating scale**: Typically 1-8 or similar (check your data)
-
-## Troubleshooting
-
-### Out of Memory (OOM) Error
 ```bash
-# Reduce batch size
-python train_assessor.py --batch_size 16 ...
+python scripts/09_evaluate_model.py \
+    --checkpoint ./results/ensemble_v2/best_model.pt \
+    --ratings_file ./results/pca_analysis/ratings_pca_4comp_test.csv \
+    --use_pca \
+    --model_type ensemble
 ```
 
-### Training too slow
-```bash
-# Use a smaller/faster model
-python train_assessor.py --backbone efficientnet_b0 ...
+## 🏗️ Architecture
 
-# Enable mixed precision (requires GPU)
-python train_assessor.py --use_amp ...
+### PCA + Decoder Pipeline
+
+```
+Image → Backbone → 4 PC Scores → Decoder → 14 Dimensions
+         ↓              ↓            ↓
+    (frozen/        (primary      (aux loss
+     finetune)       loss)        λ=0.2)
 ```
 
-### Model overfitting
-```bash
-# Increase dropout
-python train_assessor.py --dropout 0.7 ...
+- **Why PCA?** 14 dimensions are highly correlated; PCA reduces to 4 independent components
+- **Why Decoder?** Allows end-to-end training while outputting interpretable 14-dim ratings
+- **Decoder initialization**: PCA components (linear projection)
 
-# Reduce learning rate
-python train_assessor.py --lr 0.00005 ...
+### Ensemble Model
 
-# Enable early stopping (already default)
-python train_assessor.py --early_stopping 10 ...
+```
+Image → ViT-B/16 ──┐
+                   ├── Concat (2816 dims) → MLP → 4 PCs
+Image → ResNet50 ──┘
 ```
 
-## Citation
+- ViT captures global semantics
+- ResNet captures local texture/color
+- Combined features improve generalization on small datasets
 
-If you use this code, please cite your work appropriately.
+## 📊 Key Files
 
-## License
+| File | Description |
+|------|-------------|
+| `ratings/per_image_Slider_mean_sd_from_wide.csv` | Raw 14-dim ratings |
+| `results/pca_analysis/pca_targets.joblib` | PCA model (scaler + components) |
+| `results/pca_analysis/ratings_pca_4comp_{train,val,test}.csv` | Split PCA ratings |
+| `results/pca_analysis/split_indices.json` | Fixed train/val/test split |
 
-See LICENSE file for details.
+## ⚙️ Configuration
+
+### Best Hyperparameters (from experiments)
+
+| Parameter | Value |
+|-----------|-------|
+| Backbone | `vit_b_16` (single) or ensemble |
+| Learning Rate | 5e-5 |
+| Optimizer | AdamW |
+| Scheduler | Cosine |
+| Loss | SmoothL1 |
+| Aux Loss Weight | 0.2 |
+| Dropout | 0.3-0.5 |
+| Augmentation | Moderate |
+
+### Augmentation Levels
+
+- **Conservative**: RandomCrop, HorizontalFlip, light ColorJitter
+- **Moderate**: + RandomRotation, RandomErasing, stronger ColorJitter
+- **Strong**: + GaussianBlur, more aggressive crops
+
+## 📈 Expected Performance
+
+Given inter-rater variability in psychological ratings:
+
+| Metric | Realistic Target | Theoretical Ceiling |
+|--------|------------------|---------------------|
+| R² | 0.35-0.45 | ~0.55-0.65 |
+| Correlation | 0.60-0.70 | ~0.75-0.80 |
+
+*Note: High rating SD (0.8-1.0 on 7-point scale) limits achievable accuracy.*
+
+## 🔧 Troubleshooting
+
+### CSV Header Issues
+The ratings CSV has quirky formatting. Use this pattern:
+```python
+with open(ratings_file, 'r') as f:
+    lines = f.readlines()
+header = lines[0].strip().replace('""', '"').replace('"', '')
+lines[0] = header + '\n'
+df = pd.read_csv(io.StringIO(''.join(lines)))
+```
+
+### GPU Memory
+- Use `--use_amp` for mixed precision
+- Reduce `--batch_size` if OOM
+- Freeze backbones with `--freeze_backbones`
+
+## 📝 Citation
+
+*Add citation info here*
+
+## 📄 License
+
+*Add license info here*

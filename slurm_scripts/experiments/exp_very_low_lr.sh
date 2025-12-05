@@ -1,0 +1,88 @@
+#!/bin/bash
+#SBATCH --job-name=exp_very_low_lr
+#SBATCH --output=/home/rothermm/new_assessor/logs/exp_very_low_lr_%j.out
+#SBATCH --error=/home/rothermm/new_assessor/logs/exp_very_low_lr_%j.err
+#SBATCH --time=24:00:00
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32G
+
+# Experiment: Very Low Learning Rate
+# Architecture: PCA + Decoder
+echo "=================================================="
+echo "Experiment: Very Low Learning Rate"
+echo "Job ID: $SLURM_JOB_ID"
+echo "Node: $SLURM_NODELIST"
+echo "Start Time: $(date)"
+echo "=================================================="
+
+# Load environment
+module load miniconda
+source $CONDA_ROOT/bin/activate
+conda activate mediaeval
+
+# Navigate to project directory
+cd /home/rothermm/new_assessor
+
+# Print environment info
+echo ""
+echo "Environment Information:"
+echo "Python: $(which python)"
+echo "Python version: $(python --version)"
+echo "PyTorch version: $(python -c 'import torch; print(torch.__version__)')"
+echo "CUDA available: $(python -c 'import torch; print(torch.cuda.is_available())')"
+if python -c 'import torch; exit(0 if torch.cuda.is_available() else 1)'; then
+    echo "GPU: $(python -c 'import torch; print(torch.cuda.get_device_name(0))')"
+fi
+echo ""
+
+# PCA Pipeline Configuration
+IMAGES_DIR="./images"
+RATINGS_FILE="./results/pca_analysis/ratings_pca_4comp_train.csv"
+RATINGS_FILE_14="./ratings/per_image_Slider_mean_sd_from_wide.csv"
+PCA_MODEL="./results/pca_analysis/pca_targets.joblib"
+OUTPUT_DIR="./outputs/experiments/very_low_lr"
+
+echo "=================================================="
+echo "Training with PCA + Decoder Architecture"
+echo "=================================================="
+echo "Images: $IMAGES_DIR"
+echo "Ratings: $RATINGS_FILE"
+echo "PCA Model: $PCA_MODEL"
+echo "Output: $OUTPUT_DIR"
+echo ""
+
+# Run training
+python scripts/03_train_model.py \
+    --images_dir "$IMAGES_DIR" \
+    --ratings_file "$RATINGS_FILE" \
+    --ratings_file_14 "$RATINGS_FILE_14" \
+    --output_dir "$OUTPUT_DIR" \
+    --use_pca \
+    --pca_model "$PCA_MODEL" \
+    --use_decoder \
+    --backbone resnet50 \
+    --epochs 100 \
+    --batch_size 32 \
+    --lr 1e-05 \
+    --weight_decay 0.01 \
+    --optimizer adamw \
+    --scheduler cosine \
+    --dropout 0.5 \
+    --aux_loss_weight 0.2 \
+    --grad_clip 1.0 \
+    --loss_fn smooth_l1 \
+    --image_size 224 \
+    --train_ratio 0.7 \
+    --val_ratio 0.15 \
+    --num_workers 8 \
+    --early_stopping 20 \
+    --save_every 10 \
+    --use_amp \
+    --pretrained
+
+echo ""
+echo "=================================================="
+echo "Job completed at: $(date)"
+echo "=================================================="

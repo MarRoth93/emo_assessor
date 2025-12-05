@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=train_assessor
-#SBATCH --output=/home/rothermm/new_assessor/logs/train_assessor_%j.out
-#SBATCH --error=/home/rothermm/new_assessor/logs/train_assessor_%j.err
+#SBATCH --job-name=train_assessor_pca
+#SBATCH --output=/home/rothermm/new_assessor/logs/train_assessor_pca_%j.out
+#SBATCH --error=/home/rothermm/new_assessor/logs/train_assessor_pca_%j.err
 #SBATCH --time=24:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
@@ -42,8 +42,10 @@ echo ""
 
 # Set paths relative to project root
 IMAGES_DIR="./images"
-RATINGS_FILE="./ratings/per_image_Slider_mean_sd_from_wide.csv"
-OUTPUT_DIR="./outputs"
+RATINGS_FILE="./results/pca_analysis/ratings_pca_4comp_train.csv"  # PCA train split
+RATINGS_FILE_14="./ratings/ratings.csv"  # Original 14-dim ratings for aux loss
+PCA_MODEL="./results/pca_analysis/pca_targets.joblib"  # PCA model with scaler
+OUTPUT_DIR="./outputs/pca_training_decoder"
 
 # Training parameters
 BACKBONE="resnet50"          # Options: resnet50, resnet101, efficientnet_b0, efficientnet_b3, vit_b_16
@@ -57,17 +59,44 @@ TRAIN_RATIO=0.7              # 70% for training
 VAL_RATIO=0.15               # 15% for validation (remaining 15% for test)
 DROPOUT=0.5
 
-# Run training
-echo "Starting training..."
+# PCA/Decoder parameters (NEW!)
+USE_DECODER=true             # Use decoder to reconstruct 14 dimensions
+AUX_LOSS_WEIGHT=0.2          # Weight for auxiliary reconstruction loss
+GRAD_CLIP=1.0                # Gradient clipping for stability
+LOSS_FN="smooth_l1"          # Options: mse, smooth_l1
+
+# Build decoder flag
+if [ "$USE_DECODER" = true ]; then
+    DECODER_FLAG="--use_decoder"
+else
+    DECODER_FLAG=""
+fi
+
+# Run training with PCA + Decoder
+echo "=================================================="
+echo "Training with PCA + Decoder Architecture"
+echo "=================================================="
 echo "Images: $IMAGES_DIR"
 echo "Ratings: $RATINGS_FILE"
+echo "PCA Model: $PCA_MODEL"
 echo "Output: $OUTPUT_DIR"
+echo "Decoder: $USE_DECODER"
+echo "Aux Loss Weight: $AUX_LOSS_WEIGHT"
+echo "Gradient Clipping: $GRAD_CLIP"
+echo "Loss Function: $LOSS_FN"
 echo ""
 
-python scripts/train_assessor.py \
+python scripts/03_train_model.py \
     --images_dir "$IMAGES_DIR" \
     --ratings_file "$RATINGS_FILE" \
+    --ratings_file_14 "$RATINGS_FILE_14" \
     --output_dir "$OUTPUT_DIR" \
+    --use_pca \
+    --pca_model "$PCA_MODEL" \
+    $DECODER_FLAG \
+    --aux_loss_weight "$AUX_LOSS_WEIGHT" \
+    --grad_clip "$GRAD_CLIP" \
+    --loss_fn "$LOSS_FN" \
     --backbone "$BACKBONE" \
     --epochs "$EPOCHS" \
     --batch_size "$BATCH_SIZE" \
